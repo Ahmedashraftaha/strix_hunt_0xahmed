@@ -202,7 +202,8 @@ def build_targets_info(args: argparse.Namespace) -> None:
     args.targets_info = dedupe_local_targets(args.targets_info)
 
     assign_workspace_subdirs(args.targets_info)
-    rewrite_localhost_targets(args.targets_info, HOST_GATEWAY_HOSTNAME)
+    if load_settings().runtime.backend == "docker":
+        rewrite_localhost_targets(args.targets_info, HOST_GATEWAY_HOSTNAME)
 
 
 def _resolve_api_spec(target: str, details: dict[str, Any]) -> None:

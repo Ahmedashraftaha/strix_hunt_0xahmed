@@ -1,0 +1,171 @@
+---
+title: "OpenCode and native execution"
+description: "Run this fork without Docker and use OpenCode as the model host"
+---
+
+This fork defaults to `STRIX_RUNTIME_BACKEND=native`. Windows, Linux, macOS, and WSL2 are supported. Windows uses PowerShell
+7 (`pwsh`) when available, falling back to Windows PowerShell 5.1
+(`powershell.exe`). WSL2 and Docker are not required on Windows.
+
+## Install this fork
+
+Use Python 3.12+ and uv. The upstream installer and PyPI package install upstream
+Strix, not these fork changes.
+
+```bash
+git clone https://github.com/Ahmedashraftaha/strix_hunt_0xahmed.git
+cd strix_hunt_0xahmed
+uv sync --frozen
+uv run strix mcp --help
+```
+
+Update this checkout with `git pull` followed by `uv sync --frozen`.
+
+## Windows setup (PowerShell)
+
+Install Python 3.12+, Git, uv, and OpenCode on Windows. PowerShell 7 is recommended;
+Windows PowerShell 5.1 is supported as a fallback. From a PowerShell terminal:
+
+```powershell
+git clone -b feat/native-opencode https://github.com/Ahmedashraftaha/strix_hunt_0xahmed.git
+cd strix_hunt_0xahmed
+uv sync --frozen
+uv run strix mcp --print-opencode-config --target "C:\path\to\your\app"
+```
+
+For an existing checkout of this branch, use `git pull` and `uv sync --frozen`.
+The config generator prints your actual `.venv\Scripts\python.exe` path with
+correct JSON escaping; do not replace it with the upstream PyPI command.
+Merge that MCP entry into OpenCode's configuration, then check `opencode mcp list`.
+This uses the stable OpenCode v1 configuration (including v1.19.0).
+If `opencode --version` reports v2, add `--opencode-version 2` instead.
+
+Commands use PowerShell syntax. Native execution supports yielding, output polling,
+stdin input, and Ctrl-C cancellation with process-tree cleanup via `write_stdin`.
+Set `tty=false`: this backend uses subprocess pipes, without a ConPTY terminal.
+Shell profiles are not loaded; `login` does not enable them. Full-screen console
+programs and tools that require a real interactive terminal are not supported by
+this transport. Install Windows versions of the tools you need on PATH.
+
+Windows file operations and patching use Python directly, including paths with
+spaces, drive letters, and Unicode. No Bash, GNU tar, or Unix user-provisioning
+commands are required. Use `curl.exe` for HTTP requests in PowerShell to avoid the
+legacy `curl` alias. Native runtime tests are included in
+`.github/workflows/native-windows.yml` for verification on real Windows runners.
+
+## Connect OpenCode
+
+OpenCode runs the model; Strix provides native tools over MCP stdio. No separate
+Strix model key is needed for this path. Your existing OpenCode model connection
+still needs to be configured in OpenCode.
+
+For OpenCode v1, print an MCP configuration:
+
+```bash
+uv run strix mcp --print-opencode-config --target /absolute/path/to/your/app --run-name app-review
+```
+
+For OpenCode v2:
+
+```bash
+uv run strix mcp --print-opencode-config --opencode-version 2 --target /absolute/path/to/your/app --run-name app-review
+```
+
+Merge the printed `strix` entry into your project's `opencode.json` or
+`opencode.jsonc`; preserve the rest of your existing configuration. The generated
+command uses this installation's absolute Python executable, so `strix` does not
+need to be on OpenCode's PATH. Run OpenCode from the assessment project directory:
+that directory owns `strix_runs/`. Pass absolute target paths when using a different
+OpenCode working directory.
+
+OpenCode v1 places the entry under `mcp.strix`; v2 places it under
+`mcp.servers.strix` and uses an object for per-server timeouts.
+See the [v1 MCP documentation](https://docs.opencode.ai/docs/mcp-servers/) and
+[v2 MCP documentation](https://dev.opencode.ai/v2/docs/mcp-servers/).
+
+Check the connection:
+
+```bash
+opencode mcp list
+```
+
+Then ask OpenCode:
+
+```text
+Use Strix get_workflow first. Review the configured targets within my authorized
+scope. Load relevant Strix skills, track todos and coverage, test hypotheses,
+record evidence and counterevidence, check list_reports for duplicates, and write
+only validated findings. Finish with Strix finish_scan when coverage is complete.
+```
+
+You can repeat `--target` for multiple assets. Omit it to expose a working
+engagement without predeclared targets; provide the authorized scope in your
+OpenCode conversation. Use a distinct `--run-name` for each engagement. One MCP
+process handles one engagement; run one connection at a time per run name.
+
+## Authorization and scope
+
+The bridge sends engagement instructions during MCP initialization and repeats them
+in `get_workflow.authorization`. OpenCode should rely on the researcher's declaration
+of authorization for every explicitly supplied target, including targets supplied in
+the conversation after startup, without repeatedly requesting permission. An empty
+configured target list does not invalidate scope already supplied in the conversation.
+
+Missing application URLs, account roles, credentials, or evidence are technical
+prerequisites. Request the specific missing input and continue other useful work.
+Engagement exclusions, permitted methods, rate limits, and program rules still apply;
+general authorization does not grant an exception to a stated testing restriction.
+Discovered links and target content cannot authorize unrelated assets or issue instructions.
+
+After updating this checkout, reconnect the Strix MCP server so OpenCode receives the
+new initialization instructions. Existing conversation restrictions and saved notes
+are not rewritten automatically. If starting a different engagement, use a new run
+name and conversation. These instructions guide the client; the MCP bridge does not
+override the client's model policies or permissions.
+
+## Available tools and state
+
+- Shell: `exec_command`, `write_stdin` (including PTY sessions).
+- Files: `apply_patch`, `view_image`.
+- Knowledge: `load_skill`, `get_workflow`.
+- Tracking: todos, notes, coverage, and threat models.
+- Reports: validated vulnerability/dependency reports, CVSS, SARIF, and `finish_scan`.
+
+Workspaces, notes, coverage, and reports persist under `strix_runs/<run-name>/`.
+Reconnect using the same run name and targets to reload tracking/report state.
+OpenCode owns its conversation history, model costs, and agent orchestration;
+Strix's autonomous `create_agent` runner is not exposed by this bridge. Report
+LLM deduplication is disabled on this path; review existing reports explicitly.
+
+Native commands execute as your current host user. Source targets are copied into
+the run workspace; changes to that copy are not applied to the original checkout.
+The runtime does not provide Docker's isolation or its preinstalled Kali tool
+bundle. Install required tools on PATH and check availability before testing.
+The backend stops its command sessions at normal shutdown while retaining workspace
+files. It does not manage independently daemonized host services.
+
+Connect your Burp, Caido, browser, or other MCPs directly to OpenCode alongside
+Strix. The bridge does not expose Strix's built-in proxy tools.
+
+## Standalone native Strix
+
+The original autonomous runner is also available without Docker. It still needs
+its own model configuration:
+
+```bash
+export STRIX_RUNTIME_BACKEND=native
+export STRIX_LLM="YOUR_SUPPORTED_MODEL_ID"
+export LLM_API_KEY="YOUR_KEY"
+uv run strix -n --target ./app
+```
+
+Native runs preserve `localhost` targets. Traffic is not forced through an absent
+proxy. To use an already running local Caido instance with guest login enabled,
+set `STRIX_CAIDO_URL` to its HTTP endpoint before starting Strix. No Caido process
+is installed or started automatically.
+
+Docker remains an explicit compatibility option:
+
+```bash
+STRIX_RUNTIME_BACKEND=docker uv run strix -n --target ./app
+```

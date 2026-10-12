@@ -65,7 +65,7 @@ def _patch_engine_scaffold(
             prompt_cache=True,
             extra_headers=None,
         ),
-        runtime=types.SimpleNamespace(max_context_images=3),
+        runtime=types.SimpleNamespace(max_context_images=3, backend="docker"),
     )
     monkeypatch.setattr(runner, "load_settings", lambda: settings)
     monkeypatch.setattr(runner, "configure_sdk_model_defaults", lambda _settings: None)
@@ -87,8 +87,10 @@ def _patch_engine_scaffold(
     monkeypatch.setattr(session_manager, "create_or_reuse", _create_or_reuse)
     monkeypatch.setattr(session_manager, "cleanup", _cleanup)
 
-    monkeypatch.setattr(runner, "build_root_task", lambda _scan_config: "task")
-    monkeypatch.setattr(runner, "build_scope_context", lambda _scan_config: scope_context)
+    monkeypatch.setattr(runner, "build_root_task", lambda _scan_config, **_kwargs: "task")
+    monkeypatch.setattr(
+        runner, "build_scope_context", lambda _scan_config, **_kwargs: scope_context
+    )
     monkeypatch.setattr(runner, "make_model_settings", lambda *_args, **_kwargs: ModelSettings())
     monkeypatch.setattr(
         mcp_client,

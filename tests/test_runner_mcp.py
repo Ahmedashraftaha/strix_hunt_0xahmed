@@ -45,7 +45,7 @@ def _settings() -> Any:
             prompt_cache=True,
             extra_headers=None,
         ),
-        runtime=types.SimpleNamespace(max_context_images=3),
+        runtime=types.SimpleNamespace(max_context_images=3, backend="docker"),
     )
 
 
@@ -68,8 +68,8 @@ def _wire_runner(monkeypatch: pytest.MonkeyPatch, tmp_path: Any) -> None:
 
     monkeypatch.setattr(session_manager, "create_or_reuse", _create_or_reuse)
     monkeypatch.setattr(session_manager, "cleanup", _cleanup)
-    monkeypatch.setattr(runner, "build_root_task", lambda _c: "task")
-    monkeypatch.setattr(runner, "build_scope_context", lambda _c: {})
+    monkeypatch.setattr(runner, "build_root_task", lambda _c, **_kwargs: "task")
+    monkeypatch.setattr(runner, "build_scope_context", lambda _c, **_kwargs: {})
     monkeypatch.setattr(runner, "make_model_settings", lambda *_a, **_k: ModelSettings())
     monkeypatch.setattr(runner, "build_strix_agent", lambda **_k: object())
     monkeypatch.setattr(runner, "make_child_factory", lambda **_k: lambda **_kk: object())

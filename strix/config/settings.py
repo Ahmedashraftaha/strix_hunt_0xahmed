@@ -144,7 +144,8 @@ class RuntimeSettings(BaseSettings):
         default="ghcr.io/usestrix/strix-sandbox:1.3.0",
         alias="STRIX_IMAGE",
     )
-    backend: str = Field(default="docker", alias="STRIX_RUNTIME_BACKEND")
+    backend: str = Field(default="native", alias="STRIX_RUNTIME_BACKEND")
+    caido_url: str | None = Field(default=None, alias="STRIX_CAIDO_URL")
     # Max screenshot/image tool outputs kept live per agent context (0 = none).
     max_context_images: int = Field(default=3, ge=0, alias="STRIX_MAX_CONTEXT_IMAGES")
 

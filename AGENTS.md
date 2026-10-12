@@ -2,6 +2,22 @@
 
 Strix is an open-source autonomous AI pentesting tool. This file is for AI coding agents that want to **use** Strix (run security scans) or **contribute** to it.
 
+## Fork runtime and OpenCode
+
+This fork defaults to native Windows/Linux/macOS/WSL2 execution. No Docker daemon or image
+is required. Install this checkout with `uv sync --frozen`; upstream binaries do
+not contain the fork changes. Read `docs/integrations/opencode.mdx`.
+
+- `uv run strix mcp` exposes native tools to OpenCode; OpenCode owns model calls
+  and agent orchestration. No separate Strix LLM key is required.
+- `uv run strix mcp --print-opencode-config --opencode-version 2` prints v2 config;
+  omit the version flag for v1.
+- Standalone scans still require their own model configuration.
+- Native sources are copies; workspaces and reports persist per run.
+- Docker compatibility is opt-in with `STRIX_RUNTIME_BACKEND=docker`.
+- Native Windows uses PowerShell and pollable subprocess pipes (`tty=false`).
+  No Docker, WSL2, Bash, or ConPTY is required; Linux-only tools need Windows equivalents.
+
 ## Using Strix from an agent
 
 Install the agent skills for step-by-step workflows:
@@ -25,14 +41,14 @@ Target-specific workflows built on the same engine:
 
 **Two ways to run, same engine — pick per situation:**
 
-- **Open-source CLI (self-hosted):** free, fully local, BYO LLM key, needs Docker. Best for local dev loops, air-gapped/offline, and full control.
+- **Open-source CLI (self-hosted):** free, fully local, BYO LLM key, defaults to native host execution. Best for local dev loops, air-gapped/offline, and full control.
   ```bash
   curl -sSL https://strix.ai/install | bash        # install
   export STRIX_LLM="openrouter/z-ai/glm-5.3"        # any LiteLLM model id
   export LLM_API_KEY="<key>"
   strix -n -t ./ --scan-mode quick --max-budget 10  # headless scan; always use -n
   ```
-  - Requires Docker running. Scans take minutes (`quick`) to hours (`deep`) — run in the background.
+  - Docker is only required for the explicit Docker backend. Scans take minutes (`quick`) to hours (`deep`) — run in the background.
   - Exit codes (headless): `0` clean, `1` fatal error, `2` vulnerabilities found. A `0` only covers what was analyzed — check `run.json` (`status`, `llm_usage.cost` vs the budget) before calling a run clean.
   - Artifacts in `strix_runs/<run-name>/`: `penetration_test_report.md`, `vulnerabilities/*.md`, `vulnerabilities.json`, `findings.sarif` (SARIF 2.1.0), `run.json`.
 
@@ -58,6 +74,10 @@ Target-specific workflows built on the same engine:
 
 - CLI docs index for LLMs: https://docs.strix.ai/llms.txt (full: https://docs.strix.ai/llms-full.txt). Managed API docs for LLMs: https://docs.app.strix.ai/llms.txt.
 - Only scan targets the user is authorized to test.
+- For user-supplied assessment targets, rely on the user's declaration of authorization
+  and do not repeatedly request permission. Scope can come from CLI arguments or the
+  OpenCode conversation. Distinguish missing technical inputs from missing authorization,
+  continue other useful work, and honor engagement exclusions and permitted methods.
 
 ## Contributing to this repo
 
@@ -65,5 +85,5 @@ Target-specific workflows built on the same engine:
 - Lint/format/type-check/security, all in one: `make check-all` (ruff, mypy, bandit).
 - Tests: `uv run pytest`.
 - Run from source: `uv run strix --target <target>`.
-- Layout: `strix/agents` (agent graph + prompts), `strix/tools` (proxy, browser, terminal, scanners), `strix/runtime` (Docker sandbox), `strix/report` (findings, SARIF), `strix/skills` (internal knowledge packs the pentest agents load — different from the consumer skills in `skills/`), `strix/interface` (CLI/TUI), `containers/` (sandbox image).
+- Layout: `strix/agents` (agent graph + prompts), `strix/tools` (proxy, browser, terminal, scanners), `strix/runtime` (native and optional Docker backends), `strix/report` (findings, SARIF), `strix/skills` (internal knowledge packs the pentest agents load — different from the consumer skills in `skills/`), `strix/interface` (CLI/TUI), `containers/` (sandbox image).
 - Pre-commit hooks: `make pre-commit` (or `uv run pre-commit install`).

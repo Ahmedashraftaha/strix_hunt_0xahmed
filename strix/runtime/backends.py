@@ -1,4 +1,4 @@
-"""Sandbox backend registry — selected via STRIX_RUNTIME_BACKEND (default: docker)."""
+"""Sandbox backend registry — selected via STRIX_RUNTIME_BACKEND (default: native)."""
 
 from __future__ import annotations
 
@@ -51,8 +51,15 @@ async def _docker_backend(
     return client, session
 
 
+async def _native_backend(**kwargs: Any) -> tuple[Any, Any]:
+    from strix.runtime.native import native_backend
+
+    return await native_backend(**kwargs)
+
+
 _BACKENDS: dict[str, SandboxBackend] = {
     "docker": _docker_backend,
+    "native": _native_backend,
 }
 
 _BIND_MOUNT_BACKENDS: set[str] = {"docker"}

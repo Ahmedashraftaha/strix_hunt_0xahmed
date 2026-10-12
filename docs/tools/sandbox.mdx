@@ -1,9 +1,14 @@
 ---
 title: "Sandbox Tools"
-description: "Pre-installed security tools in the Strix container"
+description: "Native execution and the optional Docker tool bundle"
 ---
 
-Strix runs inside a Kali Linux-based Docker container with a comprehensive set of security tools pre-installed. The agent can use any of these tools through the [terminal](/tools/terminal).
+This fork defaults to native host execution. Install tools locally on PATH; none
+of the container tools below are installed automatically. See the
+[OpenCode/native guide](/integrations/opencode).
+
+The following inventory describes the optional Docker backend
+(`STRIX_RUNTIME_BACKEND=docker`), whose Kali image includes these tools.
 
 ## Reconnaissance
 
@@ -87,5 +92,5 @@ Strix runs inside a Kali Linux-based Docker container with a comprehensive set o
 | [Playwright](https://playwright.dev) | Headless browser automation |
 
 <Note>
-  All tools are pre-configured and ready to use. The agent selects the appropriate tool based on the vulnerability being tested.
+  These tools are pre-configured only in the optional Docker image. The agent selects the appropriate tool based on the vulnerability being tested.
 </Note>

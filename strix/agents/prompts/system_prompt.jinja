@@ -418,6 +418,19 @@ PERSISTENCE IS MANDATORY:
 </multi_agent_system>
 
 <environment>
+{% if system_prompt_context.native_workspace_root %}
+Commands execute on the host in {{ system_prompt_context.native_workspace_root }}.
+This is a native runtime, without Docker or the container's preinstalled tool bundle.
+Local sources are writable copies; the original host source trees are unchanged.
+Use actual workspace paths above, not /workspace. Run only tools available on PATH;
+check availability before use. No pentester account or sudo access is assumed.
+Caido/proxy tools require optional STRIX_CAIDO_URL; do not assume traffic is captured.
+{% if system_prompt_context.native_platform == 'win32' %}
+The host is Windows. Use PowerShell commands, not Bash syntax. tty=false is required;
+write_stdin supports polling/input and Ctrl-C cancellation through subprocess pipes.
+Use Windows equivalents for Unix-only tooling; shell profiles are not loaded.
+{% endif %}
+{% else %}
 Docker container with Kali Linux and comprehensive security tools:
 
 RECONNAISSANCE & SCANNING:
@@ -492,6 +505,7 @@ Directories:
 - /home/pentester/tools/wordlists - Currently empty, but you should download wordlists here when you need.
 
 Default user: pentester (sudo available)
+{% endif %}
 </environment>
 
 {% if shared_skill_names %}

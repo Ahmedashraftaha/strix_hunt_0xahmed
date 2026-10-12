@@ -11,13 +11,14 @@ from typing import TYPE_CHECKING, Any
 
 from agents.agent import ToolsToFinalOutputResult
 from agents.sandbox import SandboxAgent
-from agents.sandbox.capabilities import Filesystem, Shell
+from agents.sandbox.capabilities import Filesystem
 from agents.sandbox.errors import InvalidManifestPathError
 from agents.tool import CustomTool, FunctionTool, Tool
 from pydantic import ValidationError
 
 from strix.agents.prompt import render_system_prompt
 from strix.config import load_settings
+from strix.runtime.native import shell_capability
 from strix.tools.agents_graph.tools import (
     agent_finish,
     create_agent,
@@ -446,7 +447,7 @@ def _wrap_exec_command(tool: FunctionTool) -> FunctionTool:
             parsed = None
         if isinstance(parsed, dict):
             if "shell" not in parsed:
-                parsed["shell"] = "bash"
+                parsed["shell"] = getattr(tool, "default_shell", "bash")
             _apply_shell_output_cap(parsed)
             raw_input = json.dumps(parsed)
         try:
@@ -618,6 +619,16 @@ _BASE_TOOLS: tuple[Tool, ...] = (
 )
 
 
+def base_agent_tools() -> tuple[Tool, ...]:
+    """Return reusable Strix function tools for alternative model hosts."""
+    return _BASE_TOOLS
+
+
+def custom_tool_as_function(tool: CustomTool) -> FunctionTool:
+    """Adapt a custom payload tool for JSON-schema clients such as MCP."""
+    return _custom_tool_as_function_tool(tool)
+
+
 # Extra tools registered for scan agents. Mirrors
 # ``strix.runtime.backends.register_backend``: register before the first
 # ``build_strix_agent`` call and every agent (root + children) gets them.
@@ -744,7 +755,7 @@ def build_strix_agent(
                     supports_images=supports_images,
                 ),
             ),
-            Shell(
+            shell_capability(
                 configure_tools=_make_shell_configurator(
                     chat_completions=chat_completions_tools,
                     strict_schemas=strict_tool_schemas,

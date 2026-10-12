@@ -13,6 +13,7 @@ import asyncio
 import contextlib
 import json
 import logging
+import sys
 from typing import TYPE_CHECKING
 
 
@@ -44,7 +45,7 @@ async def _login_as_guest(
     last_err: str | None = None
     for i in range(1, attempts + 1):
         result = await session.exec(
-            "curl",
+            "curl.exe" if sys.platform == "win32" else "curl",
             "-fsS",
             "-X",
             "POST",
