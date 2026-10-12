@@ -50,9 +50,10 @@ def test_native_is_default(monkeypatch: pytest.MonkeyPatch) -> None:
     assert RuntimeSettings().backend == "native"
 
 
-def test_windows_has_actionable_error(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_windows_requires_powershell(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(sys, "platform", "win32")
-    with pytest.raises(RuntimeError, match="WSL2"):
+    monkeypatch.setattr("strix.runtime.native_windows.shutil.which", lambda _name: None)
+    with pytest.raises(RuntimeError, match="PowerShell not found"):
         check_native_platform()
 
 
@@ -82,7 +83,6 @@ def test_scope_and_task_use_actual_workspace() -> None:
     assert "mounted live" not in task
 
 
-@pytest.mark.skipif(sys.platform == "win32", reason="Unix native runtime")
 async def test_native_session_copies_sources_stages_files_and_retains_artifacts(
     _native_settings: None,
     tmp_path: Path,
@@ -112,7 +112,12 @@ async def test_native_session_copies_sources_stages_files_and_retains_artifacts(
         environment = await session.state.manifest.environment.resolve()
         assert "http_proxy" not in environment
         assert "HOST_GATEWAY" not in environment
-        result = await session.exec("sh", "-c", "printf changed > repo/file.txt")
+        result = await session.exec(
+            sys.executable,
+            "-c",
+            "from pathlib import Path; Path('repo/file.txt').write_text('changed')",
+            shell=False,
+        )
         assert result.ok()
         assert (source / "file.txt").read_text() == "original"
         assert await session_manager.create_or_reuse(scan_id, image="", local_sources=[]) is bundle
@@ -136,7 +141,6 @@ async def test_native_session_copies_sources_stages_files_and_retains_artifacts(
         await session_manager.cleanup(scan_id)
 
 
-@pytest.mark.skipif(sys.platform == "win32", reason="Unix native runtime")
 async def test_bridge_tools_execute_without_model_and_restore_notes(
     _native_settings: None,
     tmp_path: Path,
@@ -166,7 +170,13 @@ async def test_bridge_tools_execute_without_model_and_restore_notes(
         assert "create_agent" not in names
         assert "call_mcp" not in names
         assert "list_requests" not in names
-        result = await bridge.call("exec_command", {"cmd": "printf native-ok", "login": False})
+        result = await bridge.call(
+            "exec_command",
+            {
+                "cmd": "Write-Output native-ok" if sys.platform == "win32" else "printf native-ok",
+                "login": False,
+            },
+        )
         assert "native-ok" in result[0].text
         patch = "*** Begin Patch\n*** Add File: proof.txt\n+bridge works\n*** End Patch"
         await bridge.call("apply_patch", {"patch": patch})
@@ -202,7 +212,6 @@ def test_opencode_config_variants(version: int) -> None:
     assert json.loads(json.dumps(config)) == config
 
 
-@pytest.mark.skipif(sys.platform == "win32", reason="Unix native runtime")
 async def test_stdio_mcp_handshake_and_command(_native_settings: None, tmp_path: Path) -> None:
     parameters = StdioServerParameters(
         command=sys.executable,
@@ -214,7 +223,13 @@ async def test_stdio_mcp_handshake_and_command(_native_settings: None, tmp_path:
         assert initialized.serverInfo.name == "strix-native"
         catalog = await client.list_tools()
         assert "get_workflow" in {tool.name for tool in catalog.tools}
-        result = await client.call_tool("exec_command", {"cmd": "printf stdio-ok", "login": False})
+        result = await client.call_tool(
+            "exec_command",
+            {
+                "cmd": "Write-Output stdio-ok" if sys.platform == "win32" else "printf stdio-ok",
+                "login": False,
+            },
+        )
         assert not result.isError
         assert "stdio-ok" in result.content[0].text
         workflow = await client.call_tool("get_workflow", {})

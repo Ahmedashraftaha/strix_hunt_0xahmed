@@ -74,10 +74,11 @@ Strix are autonomous AI penetration testing agents that act just like real hacke
 ## 🚀 Quick Start
 
 This fork runs **without Docker by default** and connects to **OpenCode via MCP**.
-Linux, macOS, and WSL2 are supported. On Windows, run both applications in WSL2.
+Windows, Linux, macOS, and WSL2 are supported. Windows runs directly through
+PowerShell; Docker and WSL2 are not required.
 
 ```bash
-git clone https://github.com/Ahmedashraftaha/strix_hunt_0xahmed.git
+git clone -b feat/native-opencode https://github.com/Ahmedashraftaha/strix_hunt_0xahmed.git
 cd strix_hunt_0xahmed
 uv sync --frozen
 
@@ -88,6 +89,7 @@ uv run strix mcp --print-opencode-config --target /absolute/path/to/app
 uv run strix mcp --print-opencode-config --opencode-version 2 --target /absolute/path/to/app
 ```
 
+On Windows, run the same commands from PowerShell and use Windows target paths.
 Merge the printed entry into your OpenCode config, then run `opencode mcp list`.
 Ask OpenCode to use Strix `get_workflow` first. OpenCode uses your configured model;
 Strix supplies local tools, knowledge, tracking, and reports. No separate Strix

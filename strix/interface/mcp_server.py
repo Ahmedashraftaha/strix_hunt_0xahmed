@@ -14,7 +14,7 @@ import uuid
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from agents.sandbox.capabilities import Filesystem, Shell
+from agents.sandbox.capabilities import Filesystem
 from agents.tool import CustomTool, FunctionTool, ToolOutputImage
 from agents.tool_context import ToolContext
 from mcp.server import Server
@@ -31,7 +31,7 @@ from strix.interface.scan_setup import build_targets_info
 from strix.interface.utils import clone_repository, collect_local_sources, stage_api_specs
 from strix.report.state import ReportState, set_global_report_state
 from strix.runtime import session_manager
-from strix.runtime.native import check_native_platform, session_workspace
+from strix.runtime.native import check_native_platform, session_workspace, shell_capability
 from strix.skills import get_available_skills
 from strix.tools.finish.tool import finish_scan
 from strix.tools.output_store import bound_text
@@ -164,10 +164,11 @@ class NativeToolBridge:
             "scan_targets": build_scan_targets(config, workspace_root=root),
             "native_workspace_root": root,
             "supports_images": True,
+            "native_platform": sys.platform,
         }
         tools = [tool for tool in base_agent_tools() if tool.name not in _EXCLUDED_TOOLS]
         tools.append(finish_scan)
-        for capability in (Shell(), Filesystem()):
+        for capability in (shell_capability(), Filesystem()):
             capability.bind(session)
             tools.extend(capability.tools())
         for tool in tools:
@@ -211,6 +212,9 @@ class NativeToolBridge:
                     {
                         "task": self.context["task"],
                         "workspace": self.context["native_workspace_root"],
+                        "platform": self.context["native_platform"],
+                        "shell": "PowerShell" if sys.platform == "win32" else "Unix shell",
+                        "tty_supported": sys.platform != "win32",
                         "reports": str(self.report.get_run_dir()) if self.report else None,
                         "skills": get_available_skills(),
                         "workflow": (

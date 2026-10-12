@@ -11,13 +11,14 @@ from typing import TYPE_CHECKING, Any
 
 from agents.agent import ToolsToFinalOutputResult
 from agents.sandbox import SandboxAgent
-from agents.sandbox.capabilities import Filesystem, Shell
+from agents.sandbox.capabilities import Filesystem
 from agents.sandbox.errors import InvalidManifestPathError
 from agents.tool import CustomTool, FunctionTool, Tool
 from pydantic import ValidationError
 
 from strix.agents.prompt import render_system_prompt
 from strix.config import load_settings
+from strix.runtime.native import shell_capability
 from strix.tools.agents_graph.tools import (
     agent_finish,
     create_agent,
@@ -446,7 +447,7 @@ def _wrap_exec_command(tool: FunctionTool) -> FunctionTool:
             parsed = None
         if isinstance(parsed, dict):
             if "shell" not in parsed:
-                parsed["shell"] = "bash"
+                parsed["shell"] = getattr(tool, "default_shell", "bash")
             _apply_shell_output_cap(parsed)
             raw_input = json.dumps(parsed)
         try:
@@ -754,7 +755,7 @@ def build_strix_agent(
                     supports_images=supports_images,
                 ),
             ),
-            Shell(
+            shell_capability(
                 configure_tools=_make_shell_configurator(
                     chat_completions=chat_completions_tools,
                     strict_schemas=strict_tool_schemas,

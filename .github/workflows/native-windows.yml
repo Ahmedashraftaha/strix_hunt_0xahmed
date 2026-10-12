@@ -1,0 +1,38 @@
+name: Native Windows runtime
+
+on:
+  pull_request:
+    paths:
+      - 'strix/runtime/**'
+      - 'strix/interface/**'
+      - 'strix/agents/**'
+      - 'tests/test_native*.py'
+      - 'pyproject.toml'
+      - 'uv.lock'
+      - '.github/workflows/native-windows.yml'
+  push:
+    branches: ['feat/native-opencode']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: native-windows-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  native-windows:
+    runs-on: windows-latest
+    env:
+      STRIX_TELEMETRY: 'false'
+      LITELLM_LOCAL_MODEL_COST_MAP: 'True'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-python-env
+        with:
+          python-version: '3.12'
+      - name: Verify Windows shell, file operations, sessions, and MCP stdio
+        run: uv run --frozen pytest tests/test_native_windows.py tests/test_native_runtime.py -q

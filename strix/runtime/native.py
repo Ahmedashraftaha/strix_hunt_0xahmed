@@ -1,4 +1,4 @@
-"""Host execution through the SDK's Unix local backend (Linux, macOS, WSL)."""
+"""Host execution through the SDK's local backends (Windows, Linux, macOS, WSL)."""
 
 from __future__ import annotations
 
@@ -17,10 +17,22 @@ if TYPE_CHECKING:
 
 def check_native_platform() -> None:
     if sys.platform == "win32":
-        raise RuntimeError(
-            "Native Strix requires Linux, macOS, or WSL2. On Windows, install and "
-            "run Strix and OpenCode inside WSL2; Docker is not required."
-        )
+        from strix.runtime.native_windows import resolve_powershell
+
+        resolve_powershell()
+
+
+def shell_capability(**kwargs: Any) -> Any:
+    """Pick host shell tools without changing Docker's Unix shell on Windows."""
+    from agents.sandbox.capabilities import Shell
+
+    from strix.config import load_settings
+
+    if sys.platform == "win32" and load_settings().runtime.backend == "native":
+        from strix.runtime.native_windows import WindowsShell
+
+        return WindowsShell(**kwargs)
+    return Shell(**kwargs)
 
 
 def session_workspace(session: Any) -> str:
@@ -53,14 +65,19 @@ async def native_backend(
     """
     del image, bind_mounts, exposed_ports
     check_native_platform()
-    from agents.sandbox.sandboxes.unix_local import UnixLocalSandboxClient
+    if sys.platform == "win32":
+        from strix.runtime.native_windows import WindowsNativeClient
 
-    class NativeClient(UnixLocalSandboxClient):
-        async def delete(self, session: Any) -> Any:
-            # SDK delete does not stop PTYs for caller-owned roots. Always stop
-            # first and retain this run's workspace for review and resume.
-            await session.stop()
-            return await super().delete(session)
+        client: Any = WindowsNativeClient()
+    else:
+        from agents.sandbox.sandboxes.unix_local import UnixLocalSandboxClient
+
+        class NativeClient(UnixLocalSandboxClient):
+            async def delete(self, session: Any) -> Any:
+                await session.stop()
+                return await super().delete(session)
+
+        client = NativeClient()
 
     root = Path(manifest.root)
     sources_file = root.parent / ".state" / "native-sources.json"
@@ -84,7 +101,6 @@ async def native_backend(
                 },
             }
         )
-    client = NativeClient()
     session = await client.create(manifest=manifest)
     try:
         await session.start()

@@ -270,6 +270,7 @@ ignore = [
 # that pick a different backend don't need every backend's libs installed.
 "strix/runtime/backends.py" = ["PLC0415"]
 "strix/runtime/native.py" = ["PLC0415"]
+"strix/runtime/native_windows.py" = ["ARG002"]
 "strix/runtime/session_manager.py" = ["PLR0915"]
 "strix/interface/mcp_server.py" = ["PLC0415"]
 "strix/runtime/docker_client.py" = [

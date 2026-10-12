@@ -430,7 +430,7 @@ def _force_utf8_streams() -> None:
 def main() -> None:
     if sys.platform == "win32":
         _force_utf8_streams()
-        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+        asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
     setup_console_logging()
 

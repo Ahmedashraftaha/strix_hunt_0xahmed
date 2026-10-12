@@ -4,7 +4,7 @@ Strix is an open-source autonomous AI pentesting tool. This file is for AI codin
 
 ## Fork runtime and OpenCode
 
-This fork defaults to native Linux/macOS/WSL2 execution. No Docker daemon or image
+This fork defaults to native Windows/Linux/macOS/WSL2 execution. No Docker daemon or image
 is required. Install this checkout with `uv sync --frozen`; upstream binaries do
 not contain the fork changes. Read `docs/integrations/opencode.mdx`.
 
@@ -15,7 +15,8 @@ not contain the fork changes. Read `docs/integrations/opencode.mdx`.
 - Standalone scans still require their own model configuration.
 - Native sources are copies; workspaces and reports persist per run.
 - Docker compatibility is opt-in with `STRIX_RUNTIME_BACKEND=docker`.
-- Native Windows is unsupported; run Strix and OpenCode in WSL2.
+- Native Windows uses PowerShell and pollable subprocess pipes (`tty=false`).
+  No Docker, WSL2, Bash, or ConPTY is required; Linux-only tools need Windows equivalents.
 
 ## Using Strix from an agent
 

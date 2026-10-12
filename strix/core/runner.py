@@ -7,6 +7,7 @@ import contextlib
 import io
 import json
 import logging
+import sys
 import uuid
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
@@ -428,6 +429,7 @@ async def run_strix_scan(
         scope_context = build_scope_context(scan_config, workspace_root=workspace_root)
         if settings.runtime.backend == "native":
             scope_context["native_workspace_root"] = workspace_root
+            scope_context["native_platform"] = sys.platform
 
         # Attach the run's MCP connections and hold their live sessions in a
         # per-run registry. The connections are source-agnostic: a caller

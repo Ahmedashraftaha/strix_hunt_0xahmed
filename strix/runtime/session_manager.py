@@ -207,6 +207,19 @@ async def stage_extra_files(session: BaseSandboxSession, archive: bytes) -> None
     ``--no-same-owner`` keeps ownership with the extracting user even where
     the session runs as root, so the agent user can always write the files.
     """
+    if getattr(getattr(session, "state", None), "type", None) == "windows_native":
+        with tarfile.open(fileobj=io.BytesIO(archive), mode="r:") as bundle:
+            for member in bundle:
+                if not member.isreg():
+                    raise ValueError("Extra workspace files must be regular files")
+                content = bundle.extractfile(member)
+                if content is not None:
+                    with content:
+                        await session.write(
+                            Path(session_workspace(session)) / member.name,
+                            io.BytesIO(content.read()),
+                        )
+        return
     archive_path = workspace_path(session, _EXTRA_FILE_ARCHIVE)
     await session.write(archive_path, io.BytesIO(archive))
     result = await session.exec(
