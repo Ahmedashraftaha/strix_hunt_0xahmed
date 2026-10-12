@@ -43,7 +43,7 @@ async def test_persistent_rate_limit_stops_gracefully(
             prompt_cache=True,
             extra_headers=None,
         ),
-        runtime=types.SimpleNamespace(max_context_images=3),
+        runtime=types.SimpleNamespace(max_context_images=3, backend="docker"),
     )
     monkeypatch.setattr(runner, "load_settings", lambda: settings)
     monkeypatch.setattr(runner, "configure_sdk_model_defaults", lambda _settings: None)
@@ -63,8 +63,8 @@ async def test_persistent_rate_limit_stops_gracefully(
     monkeypatch.setattr(session_manager, "create_or_reuse", _create_or_reuse)
     monkeypatch.setattr(session_manager, "cleanup", _cleanup)
 
-    monkeypatch.setattr(runner, "build_root_task", lambda _scan_config: "task")
-    monkeypatch.setattr(runner, "build_scope_context", lambda _scan_config: "")
+    monkeypatch.setattr(runner, "build_root_task", lambda _scan_config, **_kwargs: "task")
+    monkeypatch.setattr(runner, "build_scope_context", lambda _scan_config, **_kwargs: "")
     monkeypatch.setattr(runner, "make_model_settings", lambda *_args, **_kwargs: ModelSettings())
     monkeypatch.setattr(runner, "build_strix_agent", lambda **_kwargs: object())
     monkeypatch.setattr(runner, "make_child_factory", lambda **_kwargs: lambda **_k: object())

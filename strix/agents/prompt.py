@@ -103,6 +103,8 @@ def render_system_prompt(
             ),
         )
 
+        native_workspace = (system_prompt_context or {}).get("native_workspace_root")
+
         shared = {
             name.split("/")[-1]
             for name in _resolve_skills(
@@ -121,6 +123,11 @@ def render_system_prompt(
             is_diff_scoped=is_diff_scoped,
         )
         skill_content = load_skills(skills_to_load, supports_images=supports_images)
+        if native_workspace:
+            skill_content = {
+                name: body.replace("/workspace", str(native_workspace))
+                for name, body in skill_content.items()
+            }
         env.globals["get_skill"] = lambda name: skill_content.get(name, "")
 
         # Skills every agent of this kind loads come first, so siblings share them

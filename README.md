@@ -73,44 +73,40 @@ Strix are autonomous AI penetration testing agents that act just like real hacke
 
 ## 🚀 Quick Start
 
-**Prerequisites:**
-- Docker (running)
-- An LLM API key from any [supported provider](https://docs.strix.ai/llm-providers/overview) (OpenAI, Anthropic, Google, etc.)
-
-### Installation & First Scan
+This fork runs **without Docker by default** and connects to **OpenCode via MCP**.
+Linux, macOS, and WSL2 are supported. On Windows, run both applications in WSL2.
 
 ```bash
-# Install Strix
-curl -sSL https://strix.ai/install | bash
+git clone https://github.com/Ahmedashraftaha/strix_hunt_0xahmed.git
+cd strix_hunt_0xahmed
+uv sync --frozen
 
-# Configure your AI provider
-export STRIX_LLM="openrouter/z-ai/glm-5.3"
-export LLM_API_KEY="your-api-key"
+# Print an MCP entry for your existing OpenCode configuration (v1).
+uv run strix mcp --print-opencode-config --target /absolute/path/to/app
 
-# Run your first security assessment
-strix --target ./app-directory
+# OpenCode v2 uses a different config layout.
+uv run strix mcp --print-opencode-config --opencode-version 2 --target /absolute/path/to/app
 ```
 
-> [!NOTE]
-> First run automatically pulls the sandbox Docker image. Results are saved to `strix_runs/<run-name>`
+Merge the printed entry into your OpenCode config, then run `opencode mcp list`.
+Ask OpenCode to use Strix `get_workflow` first. OpenCode uses your configured model;
+Strix supplies local tools, knowledge, tracking, and reports. No separate Strix
+LLM key is required for the MCP path.
 
-### Updating
+Read [the native/OpenCode guide](docs/integrations/opencode.mdx) for complete setup,
+limitations, standalone native execution, and optional Docker compatibility.
+Native execution uses your host permissions and installed tools. Source targets
+are copied; artifacts persist in `strix_runs/<run-name>/`.
 
-```bash
-# Self-update the standalone binary to the latest release
-strix --update
-
-# ...or re-run the installer
-curl -sSL https://strix.ai/install | bash
-```
-
-Installed with pipx, uv, or pip? `strix --update` prints the matching upgrade command instead (`pipx upgrade strix-agent`, `uv tool upgrade strix-agent`, `pip install --upgrade strix-agent`). Strix also shows a notice with the right command when a new version is available.
+Use this checkout for installation and update with `git pull` + `uv sync --frozen`;
+the upstream installer and PyPI release do not contain these fork modifications.
 
 ---
 
 ## Ways to Run Strix
 
-- **Open Source** - free, runs locally with Docker and your own LLM key. [Quick Start](https://docs.strix.ai/quickstart)
+- **Native + OpenCode** - local tools over MCP, using your OpenCode model connection. [Setup](docs/integrations/opencode.mdx)
+- **Standalone** - local autonomous runner with your own LLM connection; Docker is optional.
 - **Strix Cloud** - no setup, validated findings, one-click autofix, and PR reviews. [Run a pentest →](https://app.strix.ai?intent=pentest&utm_source=github&utm_medium=readme&utm_content=table_cloud)
 - **Enterprise** - SSO, compliance-ready reports, VPC or self-hosted deployment. [Try Strix Enterprise →](https://strix.ai/demo?utm_source=github&utm_medium=readme&utm_content=table_demo)
 

@@ -16,9 +16,11 @@ from agents.sandbox.entries import BaseEntry, LocalDir
 from agents.sandbox.manifest import Environment, Manifest
 
 from strix.config import load_settings
+from strix.core.paths import run_dir_for
 from strix.runtime.backends import backend_supports_bind_mounts, get_backend
 from strix.runtime.caido_bootstrap import bootstrap_caido
 from strix.runtime.caido_handle import CaidoBootstrapHandle
+from strix.runtime.native import session_workspace, workspace_path
 
 
 if TYPE_CHECKING:
@@ -205,14 +207,15 @@ async def stage_extra_files(session: BaseSandboxSession, archive: bytes) -> None
     ``--no-same-owner`` keeps ownership with the extracting user even where
     the session runs as root, so the agent user can always write the files.
     """
-    await session.write(Path(_EXTRA_FILE_ARCHIVE), io.BytesIO(archive))
+    archive_path = workspace_path(session, _EXTRA_FILE_ARCHIVE)
+    await session.write(archive_path, io.BytesIO(archive))
     result = await session.exec(
         "sh",
         "-c",
         'tar --no-same-owner -xf "$1" -C "$2" && rm -f -- "$1"',
         "sh",
-        _EXTRA_FILE_ARCHIVE,
-        _WORKSPACE_ROOT,
+        str(archive_path),
+        session_workspace(session),
         timeout=_EXTRA_FILE_EXTRACT_TIMEOUT_S,
     )
     if not result.ok():
@@ -301,21 +304,28 @@ async def create_or_reuse(
     # picks up these env vars automatically. ``NO_PROXY`` keeps the
     # agent-browser CDP daemon's localhost traffic from looping back
     # through Caido.
-    container_caido_url = f"http://127.0.0.1:{_CONTAINER_CAIDO_PORT}"
-    manifest = Manifest(
-        entries=entries,
-        environment=Environment(
-            value={
-                "PYTHONUNBUFFERED": "1",
-                "HOST_GATEWAY": "host.docker.internal",
-                **_host_identity_env(),
+    native = backend_name == "native"
+    container_caido_url = (
+        load_settings().runtime.caido_url if native else f"http://127.0.0.1:{_CONTAINER_CAIDO_PORT}"
+    )
+    environment = {"PYTHONUNBUFFERED": "1", "NO_PROXY": "localhost,127.0.0.1"}
+    if not native:
+        environment.update({"HOST_GATEWAY": "host.docker.internal", **_host_identity_env()})
+    if container_caido_url:
+        environment.update(
+            {
                 "http_proxy": container_caido_url,
                 "https_proxy": container_caido_url,
                 "ALL_PROXY": container_caido_url,
-                "NO_PROXY": "localhost,127.0.0.1",
-            },
-        ),
+            }
+        )
+    manifest = Manifest(
+        entries=entries,
+        environment=Environment(value={**environment}),
     )
+    if native:
+        # Persistent root: SDK cleanup stops processes but keeps scan artifacts.
+        manifest.root = str((run_dir_for(scan_id) / "workspace").resolve())
 
     logger.info(
         "Creating sandbox session for scan %s (backend=%s, image=%s)",
@@ -323,7 +333,7 @@ async def create_or_reuse(
         backend_name,
         image,
     )
-    report("Starting sandbox container")
+    report("Starting native workspace" if native else "Starting sandbox container")
     client, session = await backend(
         image=image,
         manifest=manifest,
@@ -339,26 +349,29 @@ async def create_or_reuse(
             await _discard_session(client, session)
             raise
 
-    report("Setting up the proxy")
-    caido_endpoint = await session.resolve_exposed_port(_CONTAINER_CAIDO_PORT)
-    scheme = "https" if caido_endpoint.tls else "http"
-    host_caido_url = f"{scheme}://{caido_endpoint.host}:{caido_endpoint.port}"
-    logger.debug("Caido host endpoint resolved: %s", host_caido_url)
-
-    # The Caido login + project setup polls the guest for a couple of seconds
-    # and nothing needs the client before the first proxy tool call, so it
-    # runs concurrently with the rest of scan start; consumers resolve the
-    # handle at first use (see CaidoBootstrapHandle).
-    caido_client = CaidoBootstrapHandle(
-        asyncio.create_task(
-            bootstrap_caido(
-                session,
-                host_url=host_caido_url,
-                container_url=container_caido_url,
-            ),
-            name=f"caido-bootstrap-{scan_id}",
-        )
-    )
+    caido_client = None
+    if container_caido_url:
+        report("Setting up the proxy")
+        try:
+            if native:
+                host_caido_url = container_caido_url
+            else:
+                caido_endpoint = await session.resolve_exposed_port(_CONTAINER_CAIDO_PORT)
+                scheme = "https" if caido_endpoint.tls else "http"
+                host_caido_url = f"{scheme}://{caido_endpoint.host}:{caido_endpoint.port}"
+            caido_client = CaidoBootstrapHandle(
+                asyncio.create_task(
+                    bootstrap_caido(
+                        session,
+                        host_url=host_caido_url,
+                        container_url=container_caido_url,
+                    ),
+                    name=f"caido-bootstrap-{scan_id}",
+                )
+            )
+        except BaseException:
+            await _discard_session(client, session)
+            raise
 
     bundle = {
         "client": client,

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any, cast
+
 from agents import RunContextWrapper, function_tool
 
 from strix.skills import load_skills, validate_requested_skills
@@ -28,8 +30,13 @@ async def load_skill(ctx: RunContextWrapper, skills: list[str]) -> str:
     err = validate_requested_skills(requested)
     if err:
         return f"load_skill: {err}"
-    context = ctx.context if isinstance(ctx.context, dict) else {}
+    context = cast("dict[str, Any]", ctx.context) if isinstance(ctx.context, dict) else {}
     contents = load_skills(requested, supports_images=context.get("supports_images", True))
+    if context.get("native_workspace_root"):
+        contents = {
+            name: body.replace("/workspace", str(context["native_workspace_root"]))
+            for name, body in contents.items()
+        }
     if not contents:
         return "load_skill: no content loaded for requested skills."
     sections = [f"## Skill: {name}\n\n{body}" for name, body in contents.items()]

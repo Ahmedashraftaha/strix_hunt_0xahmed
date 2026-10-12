@@ -50,7 +50,8 @@
               "integrations/github-actions",
               "integrations/ci-cd",
               "integrations/coding-agents",
-              "integrations/mcp"
+              "integrations/mcp",
+              "integrations/opencode"
             ]
           },
           {

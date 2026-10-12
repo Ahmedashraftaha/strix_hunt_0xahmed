@@ -61,6 +61,7 @@ logger = logging.getLogger(__name__)
 
 _ROOT_SUBCOMMAND_HELP = """
 Additional commands:
+  strix mcp ...            Connect native tools to OpenCode over stdio
   strix cloud ...          Use the managed Strix platform
   strix auth ...           Manage model-subscription sign-in
   strix view [RUN]         View a completed or running scan
@@ -468,6 +469,12 @@ def main() -> None:
 
         sys.exit(run_cloud(sys.argv[2:]))
 
+    if len(sys.argv) > 1 and sys.argv[1] == "mcp":
+        from strix.interface.mcp_server import run_mcp
+
+        run_mcp(sys.argv[2:])
+        return
+
     start_import_warmup()
 
     args = parse_arguments()
@@ -482,8 +489,13 @@ def main() -> None:
     if args.resume_picker:
         _pick_run_to_resume(args)
 
-    check_docker_installed()
-    pull_docker_image()
+    if load_settings().runtime.backend == "docker":
+        check_docker_installed()
+        pull_docker_image()
+    elif load_settings().runtime.backend == "native":
+        from strix.runtime.native import check_native_platform
+
+        check_native_platform()
     validate_environment()
 
     # Everything below imports the scan engine; do not race the warm-up thread.

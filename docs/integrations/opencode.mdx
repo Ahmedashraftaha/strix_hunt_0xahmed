@@ -1,0 +1,119 @@
+---
+title: "OpenCode and native execution"
+description: "Run this fork without Docker and use OpenCode as the model host"
+---
+
+This fork defaults to `STRIX_RUNTIME_BACKEND=native`. Linux, macOS, and WSL2
+are supported. On Windows, run both Strix and OpenCode inside WSL2. Native
+Windows PowerShell execution is not implemented by this backend.
+
+## Install this fork
+
+Use Python 3.12+ and uv. The upstream installer and PyPI package install upstream
+Strix, not these fork changes.
+
+```bash
+git clone https://github.com/Ahmedashraftaha/strix_hunt_0xahmed.git
+cd strix_hunt_0xahmed
+uv sync --frozen
+uv run strix mcp --help
+```
+
+Update this checkout with `git pull` followed by `uv sync --frozen`.
+
+## Connect OpenCode
+
+OpenCode runs the model; Strix provides native tools over MCP stdio. No separate
+Strix model key is needed for this path. Your existing OpenCode model connection
+still needs to be configured in OpenCode.
+
+For OpenCode v1, print an MCP configuration:
+
+```bash
+uv run strix mcp --print-opencode-config --target /absolute/path/to/your/app --run-name app-review
+```
+
+For OpenCode v2:
+
+```bash
+uv run strix mcp --print-opencode-config --opencode-version 2 --target /absolute/path/to/your/app --run-name app-review
+```
+
+Merge the printed `strix` entry into your project's `opencode.json` or
+`opencode.jsonc`; preserve the rest of your existing configuration. The generated
+command uses this installation's absolute Python executable, so `strix` does not
+need to be on OpenCode's PATH. Run OpenCode from the assessment project directory:
+that directory owns `strix_runs/`. Pass absolute target paths when using a different
+OpenCode working directory.
+
+OpenCode v1 places the entry under `mcp.strix`; v2 places it under
+`mcp.servers.strix` and uses an object for per-server timeouts.
+See the [v1 MCP documentation](https://docs.opencode.ai/docs/mcp-servers/) and
+[v2 MCP documentation](https://dev.opencode.ai/v2/docs/mcp-servers/).
+
+Check the connection:
+
+```bash
+opencode mcp list
+```
+
+Then ask OpenCode:
+
+```text
+Use Strix get_workflow first. Review the configured targets within my authorized
+scope. Load relevant Strix skills, track todos and coverage, test hypotheses,
+record evidence and counterevidence, check list_reports for duplicates, and write
+only validated findings. Finish with Strix finish_scan when coverage is complete.
+```
+
+You can repeat `--target` for multiple assets. Omit it to expose a working
+engagement without predeclared targets; provide the authorized scope in your
+OpenCode conversation. Use a distinct `--run-name` for each engagement. One MCP
+process handles one engagement; run one connection at a time per run name.
+
+## Available tools and state
+
+- Shell: `exec_command`, `write_stdin` (including PTY sessions).
+- Files: `apply_patch`, `view_image`.
+- Knowledge: `load_skill`, `get_workflow`.
+- Tracking: todos, notes, coverage, and threat models.
+- Reports: validated vulnerability/dependency reports, CVSS, SARIF, and `finish_scan`.
+
+Workspaces, notes, coverage, and reports persist under `strix_runs/<run-name>/`.
+Reconnect using the same run name and targets to reload tracking/report state.
+OpenCode owns its conversation history, model costs, and agent orchestration;
+Strix's autonomous `create_agent` runner is not exposed by this bridge. Report
+LLM deduplication is disabled on this path; review existing reports explicitly.
+
+Native commands execute as your current host user. Source targets are copied into
+the run workspace; changes to that copy are not applied to the original checkout.
+The runtime does not provide Docker's isolation or its preinstalled Kali tool
+bundle. Install required tools on PATH and check availability before testing.
+The backend stops its PTY sessions at normal shutdown while retaining workspace
+files. It does not manage independently daemonized host services.
+
+Connect your Burp, Caido, browser, or other MCPs directly to OpenCode alongside
+Strix. The bridge does not expose Strix's built-in proxy tools.
+
+## Standalone native Strix
+
+The original autonomous runner is also available without Docker. It still needs
+its own model configuration:
+
+```bash
+export STRIX_RUNTIME_BACKEND=native
+export STRIX_LLM="YOUR_SUPPORTED_MODEL_ID"
+export LLM_API_KEY="YOUR_KEY"
+uv run strix -n --target ./app
+```
+
+Native runs preserve `localhost` targets. Traffic is not forced through an absent
+proxy. To use an already running local Caido instance with guest login enabled,
+set `STRIX_CAIDO_URL` to its HTTP endpoint before starting Strix. No Caido process
+is installed or started automatically.
+
+Docker remains an explicit compatibility option:
+
+```bash
+STRIX_RUNTIME_BACKEND=docker uv run strix -n --target ./app
+```

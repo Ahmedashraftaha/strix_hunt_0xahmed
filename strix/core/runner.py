@@ -9,7 +9,6 @@ import json
 import logging
 import uuid
 from collections.abc import Callable
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from agents import RunConfig
@@ -47,6 +46,7 @@ from strix.core.paths import run_dir_for, runtime_state_dir
 from strix.core.sessions import open_agent_session
 from strix.report.state import get_global_report_state
 from strix.runtime import session_manager
+from strix.runtime.native import session_workspace, workspace_path
 from strix.telemetry import set_scan_phase
 from strix.telemetry.logging import set_scan_id, setup_scan_logging
 from strix.tools.finish.tool import finish_scan
@@ -375,11 +375,12 @@ async def run_strix_scan(
         """Write an oversized tool result into the sandbox; return its path or None."""
         path = f"{WORKSPACE_SPILL_DIR}/{output_id}.txt"
         try:
-            await sandbox_session.write(Path(path), io.BytesIO(text.encode("utf-8")))
+            actual_path = workspace_path(sandbox_session, path)
+            await sandbox_session.write(actual_path, io.BytesIO(text.encode("utf-8")))
         except Exception:
             logger.exception("failed to spill tool output to sandbox workspace")
             return None
-        return path
+        return str(actual_path)
 
     configure_spill_writer(_spill_to_workspace)
 
@@ -393,7 +394,8 @@ async def run_strix_scan(
         diff_scope = scan_config.get("diff_scope")
         is_diff_scoped = bool(isinstance(diff_scope, dict) and diff_scope.get("active"))
         skills = list(scan_config.get("skills") or [])
-        root_task = build_root_task(scan_config)
+        workspace_root = session_workspace(sandbox_session)
+        root_task = build_root_task(scan_config, workspace_root=workspace_root)
         model_settings = make_model_settings(
             settings.llm.reasoning_effort,
             model_name=resolved_model,
@@ -423,7 +425,9 @@ async def run_strix_scan(
         if interactive and budget_policy != "pause":
             coordinator.set_budget_extender(hooks.extend_budget)
 
-        scope_context = build_scope_context(scan_config)
+        scope_context = build_scope_context(scan_config, workspace_root=workspace_root)
+        if settings.runtime.backend == "native":
+            scope_context["native_workspace_root"] = workspace_root
 
         # Attach the run's MCP connections and hold their live sessions in a
         # per-run registry. The connections are source-agnostic: a caller
@@ -554,9 +558,12 @@ async def run_strix_scan(
             "parent_id": None,
             "interactive": interactive,
             "spawn_child_agent": spawn_child_agent,
-            "scan_targets": build_scan_targets(scan_config),
+            "scan_targets": build_scan_targets(scan_config, workspace_root=workspace_root),
             "max_context_images": settings.runtime.max_context_images,
             "supports_images": supports_images,
+            "native_workspace_root": workspace_root
+            if settings.runtime.backend == "native"
+            else None,
         }
 
         root_session = open_agent_session(root_id, agents_db)

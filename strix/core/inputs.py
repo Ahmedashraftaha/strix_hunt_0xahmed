@@ -105,7 +105,7 @@ def _render_workspace_files(scan_config: dict[str, Any]) -> list[str]:
     ]
 
 
-def build_root_task(scan_config: dict[str, Any]) -> str:
+def build_root_task(scan_config: dict[str, Any], *, workspace_root: str = "/workspace") -> str:
     targets = scan_config.get("targets", []) or []
     diff_scope = scan_config.get("diff_scope") or {}
     user_instructions = scan_config.get("user_instructions", "") or ""
@@ -122,7 +122,9 @@ def build_root_task(scan_config: dict[str, Any]) -> str:
         ttype = target.get("type")
         details = target.get("details") or {}
         workspace_subdir = details.get("workspace_subdir")
-        workspace_path = f"/workspace/{workspace_subdir}" if workspace_subdir else "/workspace"
+        workspace_path = (
+            f"{workspace_root}/{workspace_subdir}" if workspace_subdir else workspace_root
+        )
 
         if ttype == "repository":
             url = details.get("target_repo", "")
@@ -154,7 +156,7 @@ def build_root_task(scan_config: dict[str, Any]) -> str:
     # listed apart from the targets so it never reads as scope.
     if workspace_mount := scan_config.get("workspace_mount") or "":
         subdir = scan_config.get("workspace_subdir") or ""
-        workspace_path = f"/workspace/{subdir}" if subdir else "/workspace"
+        workspace_path = f"{workspace_root}/{subdir}" if subdir else workspace_root
         parts.append("\n\nWorking Directory:")
         parts.append(
             f"- {workspace_mount} (available at: {workspace_path}; "
@@ -185,12 +187,21 @@ def build_root_task(scan_config: dict[str, Any]) -> str:
     parts.extend(_render_diff_scope(diff_scope))
 
     task = " ".join(parts)
+    if workspace_root != "/workspace":
+        task = task.replace("/workspace/", f"{workspace_root}/")
+        task = task.replace(
+            "this is the user's real directory, mounted live and writable — "
+            ".git/.agents/.codex are read-only",
+            "this is a writable copy; the original directory is unchanged",
+        )
     if user_instructions:
         task = f"{task}\n\nSpecial instructions: {user_instructions}"
     return task
 
 
-def build_scope_context(scan_config: dict[str, Any]) -> dict[str, Any]:
+def build_scope_context(
+    scan_config: dict[str, Any], *, workspace_root: str = "/workspace"
+) -> dict[str, Any]:
     authorized: list[dict[str, str]] = []
     value_keys = {
         "repository": "target_repo",
@@ -206,7 +217,7 @@ def build_scope_context(scan_config: dict[str, Any]) -> dict[str, Any]:
         value = details.get(key, "") if key is not None else target.get("original", "")
 
         workspace_subdir = details.get("workspace_subdir")
-        workspace_path = f"/workspace/{workspace_subdir}" if workspace_subdir else ""
+        workspace_path = f"{workspace_root}/{workspace_subdir}" if workspace_subdir else ""
         authorized.append(
             {"type": ttype, "value": value, "workspace_path": workspace_path},
         )
@@ -225,7 +236,9 @@ def build_scope_context(scan_config: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def build_scan_targets(scan_config: dict[str, Any]) -> list[str]:
+def build_scan_targets(
+    scan_config: dict[str, Any], *, workspace_root: str = "/workspace"
+) -> list[str]:
     """One canonical string per authorized target.
 
     Agents refer to the target in whatever words they were handed, so anything
@@ -235,7 +248,9 @@ def build_scan_targets(scan_config: dict[str, Any]) -> list[str]:
     and its revision — is what gets inspected.
     """
     targets: list[str] = []
-    for target in build_scope_context(scan_config)["authorized_targets"]:
+    for target in build_scope_context(scan_config, workspace_root=workspace_root)[
+        "authorized_targets"
+    ]:
         value = target["workspace_path"] or target["value"]
         if value and value not in targets:
             targets.append(value)

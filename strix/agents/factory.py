@@ -618,6 +618,16 @@ _BASE_TOOLS: tuple[Tool, ...] = (
 )
 
 
+def base_agent_tools() -> tuple[Tool, ...]:
+    """Return reusable Strix function tools for alternative model hosts."""
+    return _BASE_TOOLS
+
+
+def custom_tool_as_function(tool: CustomTool) -> FunctionTool:
+    """Adapt a custom payload tool for JSON-schema clients such as MCP."""
+    return _custom_tool_as_function_tool(tool)
+
+
 # Extra tools registered for scan agents. Mirrors
 # ``strix.runtime.backends.register_backend``: register before the first
 # ``build_strix_agent`` call and every agent (root + children) gets them.
