@@ -30,14 +30,15 @@ Windows PowerShell 5.1 is supported as a fallback. From a PowerShell terminal:
 git clone -b feat/native-opencode https://github.com/Ahmedashraftaha/strix_hunt_0xahmed.git
 cd strix_hunt_0xahmed
 uv sync --frozen
-uv run strix mcp --print-opencode-config --opencode-version 2 --target "C:\path\to\your\app"
+uv run strix mcp --print-opencode-config --target "C:\path\to\your\app"
 ```
 
 For an existing checkout of this branch, use `git pull` and `uv sync --frozen`.
 The config generator prints your actual `.venv\Scripts\python.exe` path with
 correct JSON escaping; do not replace it with the upstream PyPI command.
 Merge that MCP entry into OpenCode's configuration, then check `opencode mcp list`.
-For OpenCode v1, omit `--opencode-version 2`.
+This uses the stable OpenCode v1 configuration (including v1.19.0).
+If `opencode --version` reports v2, add `--opencode-version 2` instead.
 
 Commands use PowerShell syntax. Native execution supports yielding, output polling,
 stdin input, and Ctrl-C cancellation with process-tree cleanup via `write_stdin`.
