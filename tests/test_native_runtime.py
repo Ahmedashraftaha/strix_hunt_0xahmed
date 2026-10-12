@@ -221,6 +221,10 @@ async def test_stdio_mcp_handshake_and_command(_native_settings: None, tmp_path:
     async with stdio_client(parameters) as (read, write), ClientSession(read, write) as client:
         initialized = await client.initialize()
         assert initialized.serverInfo.name == "strix-native"
+        assert initialized.instructions is not None
+        assert "declares authorization" in initialized.instructions
+        assert "technical prerequisites, not missing authorization" in initialized.instructions
+        assert "program rules" in initialized.instructions
         catalog = await client.list_tools()
         assert "get_workflow" in {tool.name for tool in catalog.tools}
         result = await client.call_tool(
@@ -235,5 +239,7 @@ async def test_stdio_mcp_handshake_and_command(_native_settings: None, tmp_path:
         workflow = await client.call_tool("get_workflow", {})
         assert not workflow.isError
         assert "stdio-test" in workflow.content[0].text
+        workflow_data = json.loads(workflow.content[0].text)
+        assert workflow_data["authorization"] == initialized.instructions
     record = json.loads((tmp_path / "strix_runs/stdio-test/run.json").read_text())
     assert record["model_execution"] == "opencode"

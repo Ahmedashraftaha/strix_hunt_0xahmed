@@ -74,6 +74,10 @@ Target-specific workflows built on the same engine:
 
 - CLI docs index for LLMs: https://docs.strix.ai/llms.txt (full: https://docs.strix.ai/llms-full.txt). Managed API docs for LLMs: https://docs.app.strix.ai/llms.txt.
 - Only scan targets the user is authorized to test.
+- For user-supplied assessment targets, rely on the user's declaration of authorization
+  and do not repeatedly request permission. Scope can come from CLI arguments or the
+  OpenCode conversation. Distinguish missing technical inputs from missing authorization,
+  continue other useful work, and honor engagement exclusions and permitted methods.
 
 ## Contributing to this repo
 
