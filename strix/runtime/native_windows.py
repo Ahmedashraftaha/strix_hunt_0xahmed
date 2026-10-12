@@ -216,7 +216,10 @@ class WindowsNativeSession(BaseSandboxSession):
             if len(parts) == 1
             else "& " + " ".join("'" + part.replace("'", "''") + "'" for part in parts)
         )
-        return powershell_command(script, shell=shell[0] if isinstance(shell, list) else None)
+        return powershell_command(  # nosec B604
+            script,
+            shell=shell[0] if isinstance(shell, list) else None,
+        )
 
     async def _spawn(self, argv: list[str]) -> asyncio.subprocess.Process:
         if not self._running:
@@ -321,7 +324,11 @@ class WindowsNativeSession(BaseSandboxSession):
             raise ValueError("Native Windows uses pipes; set tty=false. ConPTY is not implemented.")
         if timeout is not None:
             raise ValueError("Use yielding/polling for Windows command sessions, not timeout")
-        argv = self._prepare_exec_command(*command, shell=shell, user=user)
+        argv = self._prepare_exec_command(  # nosec B604
+            *command,
+            shell=shell,
+            user=user,
+        )
         async with self._process_lock:
             if len(self._processes) >= PTY_PROCESSES_MAX:
                 raise RuntimeError(
@@ -542,7 +549,7 @@ class WindowsExecCommandTool(ExecCommandTool):
         shell = resolve_powershell(args.shell)
         update = await self.session.pty_exec_start(  # noqa: S604 - explicit agent shell tool
             script,
-            shell=[shell],
+            shell=[shell],  # nosec B604
             user=self.user,
             tty=args.tty,
             yield_time_s=args.yield_time_ms / 1000,

@@ -22,6 +22,7 @@ from strix.runtime.native_windows import (
     WindowsNativeSession,
     WindowsSessionState,
     powershell_command,
+    resolve_powershell,
 )
 from strix.runtime.session_manager import build_extra_file_archive, stage_extra_files
 
@@ -240,16 +241,21 @@ async def test_windows_cancelled_start_does_not_leave_a_session(
 
 
 @pytest.mark.skipif(sys.platform != "win32", reason="Real Windows PowerShell")
+@pytest.mark.parametrize("shell", ["pwsh", "powershell"])
 async def test_real_windows_powershell_unicode_exit_codes_and_workdir(
     windows_session: WindowsNativeSession,
+    shell: str,
 ) -> None:
-    result = await windows_session.exec("Write-Output 'مرحبا'")
+    executable = resolve_powershell(shell)
+    result = await windows_session.exec("Write-Output 'مرحبا'", shell=[executable])  # noqa: S604
     assert result.ok()
     assert "مرحبا" in result.stdout.decode()
-    assert (await windows_session.exec("cmd /c exit 7")).exit_code == 7
-    assert (await windows_session.exec("throw 'failure'")).exit_code != 0
+    assert (await windows_session.exec("cmd /c exit 7", shell=[executable])).exit_code == 7  # noqa: S604
+    assert (await windows_session.exec("throw 'failure'", shell=[executable])).exit_code != 0  # noqa: S604
     directory = Path(windows_session.state.manifest.root) / "a 'quoted' directory"
     directory.mkdir()
     tool = WindowsExecCommandTool(session=windows_session)
-    output = await tool.run(ExecCommandArgs(cmd="(Get-Location).Path", workdir=str(directory)))
+    output = await tool.run(
+        ExecCommandArgs(cmd="(Get-Location).Path", workdir=str(directory), shell=shell)
+    )
     assert str(directory) in output
